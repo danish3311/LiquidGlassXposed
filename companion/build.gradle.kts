@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "com.kyant.glassxposed.companion"
-    compileSdk = 35
+    // backdrop 1.0.6 and its io.github.kyant0:shapes-android:1.2.0 dependency
+    // both require compiling against API 36+ (see their AAR metadata).
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.kyant.glassxposed.companion"

@@ -31,7 +31,8 @@ jobs:
       - name: Install required Android SDK packages
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
-            "platforms;android-35" "build-tools;35.0.0" "platform-tools" > /dev/null
+            "platforms;android-35" "platforms;android-36" \
+            "build-tools;35.0.0" "build-tools;36.0.0" "platform-tools" > /dev/null
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew

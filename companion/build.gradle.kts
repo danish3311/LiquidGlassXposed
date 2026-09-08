@@ -35,6 +35,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.runtime:runtime")
 
     // The actual glass-effect library — used here for real, in our own
     // Compose UI, which is exactly what it's designed for.

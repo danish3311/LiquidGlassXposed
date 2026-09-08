@@ -6,8 +6,6 @@ plugins {
 
 android {
     namespace = "com.kyant.glassxposed.companion"
-    // backdrop 1.0.6 and its io.github.kyant0:shapes-android:1.2.0 dependency
-    // both require compiling against API 36+ (see their AAR metadata).
     compileSdk = 36
 
     defaultConfig {
@@ -26,8 +24,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -37,11 +38,5 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
-
-    // The actual glass-effect library — used here for real, in our own
-    // Compose UI, which is exactly what it's designed for.
-    // Pinned (not "+") — newer releases (2.x) require compileSdk 37 / AGP
-    // 9.1.0, which this project isn't on. 1.0.6 is the latest 1.x release
-    // and only needs Compose ~1.10, which is well within compileSdk 35.
     implementation("io.github.kyant0:backdrop:1.0.6")
 }

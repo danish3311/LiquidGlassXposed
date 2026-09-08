@@ -38,5 +38,8 @@ dependencies {
 
     // The actual glass-effect library — used here for real, in our own
     // Compose UI, which is exactly what it's designed for.
-    implementation("io.github.kyant0:backdrop:+")
+    // Pinned (not "+") — newer releases (2.x) require compileSdk 37 / AGP
+    // 9.1.0, which this project isn't on. 1.0.6 is the latest 1.x release
+    // and only needs Compose ~1.10, which is well within compileSdk 35.
+    implementation("io.github.kyant0:backdrop:1.0.6")
 }

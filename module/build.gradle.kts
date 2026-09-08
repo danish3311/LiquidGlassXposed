@@ -36,4 +36,7 @@ dependencies {
     // Classic Xposed API — compileOnly because LSPosed provides the real
     // implementation at runtime in the hooked process.
     compileOnly("de.robv.android.xposed:api:82")
+
+    // @ColorInt / @RequiresApi used in shader/GlassEffectFactory.kt
+    implementation("androidx.annotation:annotation:1.9.1")
 }

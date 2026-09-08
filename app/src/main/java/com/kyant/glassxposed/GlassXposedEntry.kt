@@ -15,7 +15,7 @@ class GlassXposedEntry : IXposedHookLoadPackage {
                 SystemUIHooks.install(lpparam)
             } else {
                 // Only does anything for packages the user explicitly opted
-                // into via the companion app's "other apps" list — see
+                // into via the settings screen's "other apps" list — see
                 // OtherAppsHooks.kt for why this is coarse/experimental.
                 OtherAppsHooks.install(lpparam)
             }

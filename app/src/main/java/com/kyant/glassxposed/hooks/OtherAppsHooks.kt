@@ -27,7 +27,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
  * preview, or deliberate privacy blur — not for making a chat app "glassy".
  *
  * This only activates for packages the user explicitly lists in the
- * companion app (GlassPrefs.KEY_OTHER_APPS_PACKAGES) AND that you've also
+ * settings screen (GlassPrefs.KEY_OTHER_APPS_PACKAGES) AND that you've also
  * added to this module's scope in LSPosed Manager (LSPosed hooks nothing
  * outside its configured scope, regardless of what this code says).
  */
@@ -51,7 +51,7 @@ object OtherAppsHooks {
                         val activity = param.thisObject as? Activity ?: return
                         val pkg = activity.packageName ?: return
 
-                        val prefs = GlassPrefs.read(activity.applicationContext ?: return)
+                        val prefs = GlassPrefs.read()
                         val targets = GlassPrefs.otherAppsPackages(prefs)
                         if (pkg !in targets) return
 

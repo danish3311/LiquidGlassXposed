@@ -1,24 +1,42 @@
 package com.kyant.glassxposed.prefs
 
-import android.content.Context
 import android.content.SharedPreferences
+import de.robv.android.xposed.XSharedPreferences
 import de.robv.android.xposed.XposedBridge
 
 /**
- * Reads settings written by the companion app (module/../companion), using
- * LSPosed's world-readable SharedPreferences support:
- * https://github.com/LSPosed/LSPosed/wiki/New-XSharedPreferences
+ * Reads settings written by the settings UI (com.kyant.glassxposed.settings
+ * .MainActivity / SettingsRepository — same app, same process as this
+ * object when running normally, but a DIFFERENT process when this code
+ * itself is loaded here — inside the hooked com.android.systemui process).
  *
- * This only works because our AndroidManifest declares
- * <meta-data android:name="xposedsharedprefs" android:value="true" />
- * and the companion app writes to the SAME prefs file name using
- * Context.MODE_WORLD_READABLE (see companion/.../SettingsRepository.kt).
+ * BUG THIS FIXES: `Context.getSharedPreferences(name, MODE_WORLD_READABLE)`
+ * throws `SecurityException: MODE_WORLD_READABLE no longer supported`
+ * unconditionally since Android 7 — that flag is gone from the framework
+ * entirely, LSPosed or not. It never worked on this device and never will.
+ *
+ * The actually-supported mechanism (see
+ * https://github.com/LSPosed/LSPosed/wiki/New-XSharedPreferences) is:
+ *   1. This app's manifest declares
+ *      <meta-data android:name="xposedsharedprefs" android:value="true" />
+ *      so LSPosed keeps this app's shared_prefs file readable at the
+ *      filesystem level whenever it changes.
+ *   2. The WRITER side (SettingsRepository, running as this app normally)
+ *      just uses plain Context.MODE_PRIVATE — nothing special.
+ *   3. The READER side (here, running inside SystemUI) uses
+ *      `XSharedPreferences`, which reads the prefs XML file directly off
+ *      disk instead of going through ContextImpl's permission checks —
+ *      MODE_WORLD_READABLE is not involved on either side anymore.
  */
 object GlassPrefs {
 
-    private const val PREFS_NAME = "glass_settings"
+    private const val MODULE_PACKAGE = "com.kyant.glassxposed"
 
-    // Keys — keep in sync with the companion app.
+    // Also used directly by SettingsRepository, since it's compiled into
+    // this same app now — one source of truth for the prefs file name and
+    // every key, so the writer and reader can never drift out of sync.
+    const val PREFS_NAME = "glass_settings"
+
     const val KEY_ENABLED_STATUS_BAR = "enabled_status_bar"
     const val KEY_ENABLED_SHADE = "enabled_shade"
     const val KEY_ENABLED_NAV_BAR = "enabled_nav_bar"
@@ -39,14 +57,38 @@ object GlassPrefs {
     const val KEY_OTHER_APPS_PACKAGES = "other_apps_packages"
     const val KEY_OTHER_APPS_BLUR_RADIUS = "other_apps_blur_radius"
 
-    @Suppress("DEPRECATION")
-    fun read(hookedAppContext: Context): SharedPreferences? {
+    @Volatile
+    private var xPrefs: XSharedPreferences? = null
+
+    private fun instance(): XSharedPreferences {
+        xPrefs?.let { return it }
+        synchronized(this) {
+            xPrefs?.let { return it }
+            val created = XSharedPreferences(MODULE_PACKAGE, PREFS_NAME)
+            @Suppress("DEPRECATION")
+            created.makeWorldReadable()
+            xPrefs = created
+            return created
+        }
+    }
+
+    /** Returns null if the settings file doesn't exist yet or can't be read. */
+    fun read(): SharedPreferences? {
         return try {
-            hookedAppContext.getSharedPreferences(PREFS_NAME, Context.MODE_WORLD_READABLE)
-        } catch (e: SecurityException) {
-            // LSPosed's world-readable-prefs feature isn't active, or the
-            // module isn't actually being loaded by LSPosed for this process.
-            XposedBridge.log("GlassXposed: could not read shared prefs world-readable: $e")
+            val prefs = instance()
+            if (!prefs.file.canRead()) {
+                XposedBridge.log(
+                    "GlassXposed: settings file not readable yet — open the Liquid Glass " +
+                        "app once and toggle a setting so the file gets created, and make " +
+                        "sure this module's own package is enabled in LSPosed Manager " +
+                        "(it needs to run once, unhooked, to write its own prefs)."
+                )
+                return null
+            }
+            prefs.reload()
+            prefs
+        } catch (t: Throwable) {
+            XposedBridge.log("GlassXposed: could not read settings via XSharedPreferences: $t")
             null
         }
     }

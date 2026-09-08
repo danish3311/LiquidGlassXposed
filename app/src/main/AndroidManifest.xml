@@ -4,14 +4,16 @@
     <application
         android:allowBackup="false"
         android:icon="@android:drawable/sym_def_app_icon"
-        android:label="Liquid Glass (Xposed)"
+        android:label="Liquid Glass"
         android:theme="@android:style/Theme.Material.Light">
 
-        <!-- Tiny launcher activity so LSPosed shows this as a manageable app
-             and so you have a place to show hook status/logs while testing. -->
+        <!-- Single launcher activity: settings UI + module status. Xposed
+             never injects into this app's own process, only into whatever
+             this module's LSPosed scope is set to (System UI). -->
         <activity
-            android:name=".StatusActivity"
-            android:exported="true">
+            android:name=".settings.MainActivity"
+            android:exported="true"
+            android:label="Liquid Glass">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -23,12 +25,13 @@
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="Liquid Glass effect for SystemUI (status bar / shade / nav bar)" />
+            android:value="Liquid Glass effect for SystemUI (status bar / shade / QS / nav bar / lock screen / volume dialog)" />
         <meta-data
             android:name="xposedminversion"
             android:value="93" />
-        <!-- Tells LSPosed to make our SharedPreferences world-readable inside
-             the hooked process (com.android.systemui) — see prefs/GlassPrefs.kt -->
+        <!-- Tells LSPosed to keep our SharedPreferences file readable from
+             the hooked process (com.android.systemui) — see prefs/GlassPrefs.kt
+             and settings/SettingsRepository.kt. -->
         <meta-data
             android:name="xposedsharedprefs"
             android:value="true" />

@@ -17,5 +17,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "LiquidGlassXposed"
-include(":module")
-include(":companion")
+include(":app")

@@ -1,13 +1,18 @@
-package com.kyant.glassxposed.companion
+package com.kyant.glassxposed.settings
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -27,12 +32,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
+/**
+ * Single-app settings UI. This activity is never itself hooked by Xposed —
+ * LSPosed only injects into the packages listed in this module's scope
+ * (normally just "System UI"), never into the module app's own process —
+ * it just writes the settings that SystemUIHooks.kt (running inside
+ * com.android.systemui) reads back out via GlassPrefs/XSharedPreferences.
+ *
+ * UI FIX: targetSdk 35 (Android 15) enforces edge-to-edge by default, so
+ * without explicit inset handling the top of the screen renders behind the
+ * status bar and the bottom renders behind the gesture/nav bar — which is
+ * exactly the "text hidden below the nav bar and notification bar" bug.
+ * `enableEdgeToEdge()` + `Modifier.windowInsetsPadding(WindowInsets.safeDrawing)`
+ * on the scrolling content fixes both: the system bars get sensible
+ * light/dark icon contrast automatically, and content is padded clear of
+ * them instead of drawing underneath.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             MaterialTheme {
-                Surface {
+                Surface(modifier = Modifier.fillMaxSize()) {
                     SettingsScreen()
                 }
             }
@@ -52,11 +74,23 @@ fun SettingsScreen() {
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        Text("Liquid Glass", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            "Applies a real glass/blur effect to SystemUI via LSPosed. Enable this " +
+                "app in LSPosed Manager, set its scope to include \"System UI\", and " +
+                "reboot after installing or updating — SystemUI hooks need a fresh " +
+                "process. Check LSPosed Manager's log viewer for lines starting with " +
+                "\"GlassXposed:\" to see which targets are actually hooked on your ROM.",
+            style = MaterialTheme.typography.bodySmall
+        )
+
+        HorizontalDivider()
         Text("SystemUI targets", style = MaterialTheme.typography.titleMedium)
         ToggleRow("Status bar", settings.enabledStatusBar) { v -> update { it.copy(enabledStatusBar = v) } }
         ToggleRow("Notification shade", settings.enabledShade) { v -> update { it.copy(enabledShade = v) } }
@@ -91,8 +125,8 @@ fun SettingsScreen() {
         Text(
             "This blurs a listed app's ENTIRE screen (text included) — there's no way " +
                 "to target just a toolbar/nav element in an app we don't control the " +
-                "source of. Only useful for specific cases, not general \"make this app glassy\". " +
-                "Comma-separated package names, e.g. com.android.camera2,com.google.android.apps.photos",
+                "source of. Comma-separated package names, e.g. " +
+                "com.android.camera2,com.google.android.apps.photos",
             style = MaterialTheme.typography.bodySmall
         )
         OutlinedTextField(

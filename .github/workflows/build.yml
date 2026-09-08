@@ -28,9 +28,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Clear problematic Gradle cache
-        run: rm -rf ~/.gradle/caches/transforms-*
-
       - name: Install required Android SDK packages
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \

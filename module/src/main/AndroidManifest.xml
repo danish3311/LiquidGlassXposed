@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="false"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:label="Liquid Glass (Xposed)"
+        android:theme="@android:style/Theme.Material.Light">
+
+        <!-- Tiny launcher activity so LSPosed shows this as a manageable app
+             and so you have a place to show hook status/logs while testing. -->
+        <activity
+            android:name=".StatusActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Liquid Glass effect for SystemUI (status bar / shade / nav bar)" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+        <!-- Tells LSPosed to make our SharedPreferences world-readable inside
+             the hooked process (com.android.systemui) — see prefs/GlassPrefs.kt -->
+        <meta-data
+            android:name="xposedsharedprefs"
+            android:value="true" />
+    </application>
+
+</manifest>

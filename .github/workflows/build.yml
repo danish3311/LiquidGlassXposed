@@ -1,4 +1,4 @@
-name: Build APKs
+name: Build APK
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: Assemble module + companion APKs
+    name: Assemble app APK
     runs-on: ubuntu-latest
 
     steps:
@@ -37,22 +37,15 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build debug APKs
-        run: ./gradlew :module:assembleDebug :companion:assembleDebug --stacktrace
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
 
-      - name: Build unsigned release APKs
-        run: ./gradlew :module:assembleRelease :companion:assembleRelease --stacktrace
+      - name: Build unsigned release APK
+        run: ./gradlew :app:assembleRelease --stacktrace
 
-      - name: Upload module APKs
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: LiquidGlassXposed-module
-          path: module/build/outputs/apk/**/*.apk
-          if-no-files-found: error
-
-      - name: Upload companion APKs
-        uses: actions/upload-artifact@v4
-        with:
-          name: LiquidGlassXposed-companion
-          path: companion/build/outputs/apk/**/*.apk
+          name: LiquidGlassXposed
+          path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error

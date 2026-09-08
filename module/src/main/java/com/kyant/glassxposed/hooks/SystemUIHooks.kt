@@ -1,6 +1,7 @@
 package com.kyant.glassxposed.hooks
 
 import android.content.Context
+import android.graphics.Color
 import android.view.View
 import com.kyant.glassxposed.prefs.GlassPrefs
 import com.kyant.glassxposed.shader.GlassEffectFactory
@@ -12,21 +13,25 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 /**
  * IMPORTANT — READ THIS FIRST:
  *
- * The class names below (PhoneStatusBarView, NotificationPanelViewController,
- * NavigationBarView, etc.) are the "usual" AOSP SystemUI internal class names
+ * The class names below are the "usual" AOSP SystemUI internal class names
  * as of Android 12-15. crDroid forks SystemUI and *can* rename, merge, or
- * restructure these. Before this will actually attach anything, you need to
- * verify the real class/view names on YOUR crDroid 15 build:
+ * restructure these. Before this will actually attach anything, verify the
+ * real class/view names on YOUR crDroid 15 build:
  *
- *   1. Pull /system_ext/priv-app/SystemUI/SystemUI.apk (or wherever your
- *      ROM ships it) off the device (adb pull, or use a root file manager).
- *   2. Open it in jadx-gui and search for "StatusBarView", "NotificationPanel",
- *      "NavigationBarView" to find the real class names in your build.
- *   3. Update CLASS_STATUS_BAR / CLASS_SHADE / CLASS_NAV_BAR below.
+ *   1. Pull /system_ext/priv-app/SystemUI/SystemUI.apk off the device.
+ *   2. Open it in jadx-gui, search for "StatusBarView", "NotificationPanel",
+ *      "NavigationBarView", "QSPanel", "KeyguardStatusView", "VolumeDialog".
+ *   3. Update the CLASS_* constants below.
  *
  * Every hook is wrapped in its own try/catch and logs failures individually,
- * so a wrong class name for one target won't crash the others or crash
- * SystemUI itself.
+ * so a wrong class name for one target won't crash the others or SystemUI.
+ *
+ * SCOPE NOTE ("whole phone theming"): this file only reaches surfaces hosted
+ * inside com.android.systemui — status bar, shade, QS, lock screen, volume
+ * dialog, nav bar. That covers most of what people mean by "system theming".
+ * It does NOT reach arbitrary third-party apps' own internal UI (Chrome,
+ * Settings, etc.) — there's no shared class to target there. See
+ * OtherAppsHooks.kt for the coarser, opt-in option for that.
  */
 object SystemUIHooks {
 
@@ -36,6 +41,9 @@ object SystemUIHooks {
     private const val CLASS_STATUS_BAR = "com.android.systemui.statusbar.phone.PhoneStatusBarView"
     private const val CLASS_SHADE = "com.android.systemui.shade.NotificationPanelView"
     private const val CLASS_NAV_BAR = "com.android.systemui.navigationbar.NavigationBarView"
+    private const val CLASS_QS_PANEL = "com.android.systemui.qs.QSPanel"
+    private const val CLASS_LOCKSCREEN = "com.android.keyguard.KeyguardStatusView"
+    private const val CLASS_VOLUME_DIALOG = "com.android.systemui.volume.VolumeDialogImpl\$CustomDialog"
     // --------------------------------------------------------------
 
     fun install(lpparam: XC_LoadPackage.LoadPackageParam) {
@@ -43,36 +51,29 @@ object SystemUIHooks {
 
         XposedBridge.log("GlassXposed: hooking into $SYSTEMUI_PACKAGE")
 
-        hookRootViewOnAttach(
-            lpparam,
-            className = CLASS_STATUS_BAR,
-            targetTag = "status_bar",
-            isEnabled = { prefs -> GlassPrefs.isEnabledStatusBar(prefs) },
-            cornerRadiusPx = 0f
-        )
+        hookRootViewOnAttach(lpparam, CLASS_STATUS_BAR, "status_bar",
+            isEnabled = { GlassPrefs.isEnabledStatusBar(it) }, cornerRadiusPx = 0f)
 
-        hookRootViewOnAttach(
-            lpparam,
-            className = CLASS_SHADE,
-            targetTag = "shade",
-            isEnabled = { prefs -> GlassPrefs.isEnabledShade(prefs) },
-            cornerRadiusPx = 48f
-        )
+        hookRootViewOnAttach(lpparam, CLASS_SHADE, "shade",
+            isEnabled = { GlassPrefs.isEnabledShade(it) }, cornerRadiusPx = 48f)
 
-        hookRootViewOnAttach(
-            lpparam,
-            className = CLASS_NAV_BAR,
-            targetTag = "nav_bar",
-            isEnabled = { prefs -> GlassPrefs.isEnabledNavBar(prefs) },
-            cornerRadiusPx = 0f
-        )
+        hookRootViewOnAttach(lpparam, CLASS_NAV_BAR, "nav_bar",
+            isEnabled = { GlassPrefs.isEnabledNavBar(it) }, cornerRadiusPx = 0f)
+
+        hookRootViewOnAttach(lpparam, CLASS_QS_PANEL, "qs_panel",
+            isEnabled = { GlassPrefs.isEnabledQsPanel(it) }, cornerRadiusPx = 32f)
+
+        hookRootViewOnAttach(lpparam, CLASS_LOCKSCREEN, "lockscreen",
+            isEnabled = { GlassPrefs.isEnabledLockscreen(it) }, cornerRadiusPx = 0f)
+
+        hookRootViewOnAttach(lpparam, CLASS_VOLUME_DIALOG, "volume_dialog",
+            isEnabled = { GlassPrefs.isEnabledVolumeDialog(it) }, cornerRadiusPx = 28f)
     }
 
     /**
-     * Generic strategy: hook the target View's onAttachedToWindow (or
-     * onFinishInflate, whichever exists) and apply setRenderEffect once the
-     * View has real dimensions. We re-apply on every layout change since
-     * the shader's `size` uniform needs to match the current bounds.
+     * Generic strategy: hook the target View's onAttachedToWindow and apply
+     * setRenderEffect once the View has real dimensions, re-applied on every
+     * layout change since the shader's `size` uniform must match bounds.
      */
     private fun hookRootViewOnAttach(
         lpparam: XC_LoadPackage.LoadPackageParam,
@@ -116,12 +117,14 @@ object SystemUIHooks {
                 val height = (bottom - top).toFloat()
                 if (width <= 0f || height <= 0f) return@addOnLayoutChangeListener
 
-                val prefs = GlassPrefs.read(v.context.applicationContext ?: v.context)
+                val context: Context = v.context.applicationContext ?: v.context
+                val prefs = GlassPrefs.read(context)
                 if (!isEnabled(prefs)) {
                     v.setRenderEffect(null)
                     return@addOnLayoutChangeListener
                 }
 
+                val tintAlphaByte = GlassPrefs.tintAlpha(prefs).toInt().coerceIn(0, 255)
                 val params = GlassEffectFactory.GlassParams(
                     widthPx = width,
                     heightPx = height,
@@ -131,9 +134,12 @@ object SystemUIHooks {
                     refractionAmountPx = GlassPrefs.refractionAmount(prefs),
                     depthEffect = GlassPrefs.depthEffect(prefs),
                     chromaticAberration = GlassPrefs.chromaticAberration(prefs),
-                    useDispersion = GlassPrefs.useDispersion(prefs)
+                    useDispersion = GlassPrefs.useDispersion(prefs),
+                    useNoiseTint = GlassPrefs.useNoiseTint(prefs),
+                    noiseAlpha = GlassPrefs.noiseAlpha(prefs),
+                    tintColor = Color.argb(tintAlphaByte, 255, 255, 255)
                 )
-                v.setRenderEffect(GlassEffectFactory.build(params))
+                v.setRenderEffect(GlassEffectFactory.build(context, params))
             } catch (t: Throwable) {
                 XposedBridge.log("GlassXposed: failed to apply effect to $targetTag: $t")
             }
